@@ -1,0 +1,41 @@
+/* Imputing missing variables*/ 
+*creates new dataset;
+data work.develop;
+	set logistic.insurance_t;
+run;
+*finds missing variables;
+proc means data=develop n nmiss mean median min max;
+	var CC CD DDA DEP INV IRA MM MTG TELLER SAVBAl PHONE ATMAMT;
+run;
+*creates new table with only variables of intrest;
+proc sql;
+	create table work.selected_var as 
+	select CC, CD, DDA, DEP, INV, IRA, MM, MTG, TELLER, SAVBAl, PHONE, ATMAMT
+	from work.develop
+	where ;
+quit;
+*prints sample of dataset;
+proc print data = selected_var (obs = 15);
+run;
+*finds all missing values and creates column to tell if missing;
+data work.train_mi(drop=i);
+	set work.selected_var;
+	array mi{*} MICC MIINV MIPHONE;
+	array x{*} CC INV PHONE;
+	do i=1 to dim(mi);
+		mi{i} = (x{i}=.);
+		nummiss+mi{1};
+	end;
+run;
+*imputes missing values with the median of that value;
+proc stdize data=work.train_mi reponly method=median out=train_imputed;
+	var CC CD DDA DEP INV IRA MM MTG TELLER SAVBAl PHONE ATMAMT;
+run; 
+*prints new dataset;
+proc print data = train_imputed (obs = 15);
+run;
+*checks new dataset for missing values;
+proc means data=train_imputed n nmiss mean median min max;
+	var _ALL_;
+run;
+
