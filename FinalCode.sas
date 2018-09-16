@@ -206,7 +206,7 @@ set predicted;
  respart_PHONE = -0.0882*PHONE + working;
  run;
 
- /*this whill take a lot of time*/
+ /*this will take a lot of time*/
 ODS GRAPHICS on/LOESSMAXOBS=10000;/* for getting CI for data points > 5000*/
  proc sgplot data=predicted;
  scatter x=MODIFIED_SAVBAL y=respart_SAVBAL;
