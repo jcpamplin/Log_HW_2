@@ -9,7 +9,7 @@ libname logistic 'C:\Users\14lmu\OneDrive\Documents\LogisticRegressionData\MSA20
 run;
 
 *1. Revise the model that you built in your previous report. 
-As before, you are free to do so in any way you’d like—this includes 
+As before, you are free to do so in any way youâ€™d likeâ€”this includes 
 transforming/combining predictors in some sensible way if you can think of one. 
 This can also include making a completely new model if you hate your current one.;
 
@@ -58,7 +58,7 @@ This may or may not change your model.;
 
 *3. Check the linearity assumption for any continuous variables in your model
 that you suspect might have a nonlinear effect. Make any corrections necessary. 
-Don’t forget model hierarchy.;  
+Donâ€™t forget model hierarchy.;  
 
 *partial residuals of all of our continuous predictors - modified_savbal modified_atmamt; 
 proc logistic data=logistic.insurance_modified;
@@ -98,7 +98,7 @@ run;
 that you suspect would be plausible and see how useful they are according to either 
 AIC or the LRT. Or, if your model already has interaction terms, use AIC or the LRT 
 to simultaneously test all terms involving the variable which appears most frequently 
-in your model. In either case, don’t go beyond two-way interactions.; 
+in your model. In either case, donâ€™t go beyond two-way interactions.; 
 
 *Were there any plausible interactions (dependencies) that were seen in initial investigation?;
 
