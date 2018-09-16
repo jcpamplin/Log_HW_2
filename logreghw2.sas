@@ -25,13 +25,14 @@ run;
 proc logistic data=logistic.insurance_t;
 	model INS(event='1') = CC CD DDA DEP INV IRA MM MTG TELLER SAVBAL PHONE ATMAMT;
 run;
-*original AIC: 9670 
+*original AIC: 8527.198
  
 /*First Final Model*/
 *AIC with transformed log variables;
 proc logistic data=logistic.insurance_modified;
 	model INS(event='1') = CC CD DDA DEP INV IRA MM MTG TELLER modified_savbal PHONE modified_atmamt;
 run;
+*AIC 8346.084;
 
 *Two variables right on the verge of being 
 insignificant: but the fact is, the AIC doesn't change. 
@@ -42,11 +43,13 @@ Model with less predictors should be better;
 proc logistic data=logistic.insurance_modified;
 	model INS(event='1') = &FinalModVar;
 run;
+*AIC: 8349.947;
 
 *Testing for multicollinearity; 
 proc reg data=logistic.insurance_modified; 
 model INS = &FinalModVar / tol vif ;
 run;
+
 
 *2. Make sure to check for separation and adjust accordingly. 
 This may or may not change your model.;  
