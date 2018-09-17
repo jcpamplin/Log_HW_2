@@ -238,14 +238,19 @@ proc gam data=logistic.insurance_modified plots=components(clm additive commonax
 run; 
 
 
-proc gam data=logistic.insurance_modified plots=components(clm additive commonaxes);
+/*proc gam data=logistic.insurance_modified plots=components(clm additive commonaxes);
 	model INS(event='1') = param(&FinalModVar) spline(phone, df=4)/ dist=binomial link=logit;
-run; 
+run; */
+/*corrected code for fitting additive models*/
+%let SplineVar =  CC CD DDA DEP INV IRA MM MTG TELLER modified_savbal;
 proc gam data=logistic.insurance_modified plots=components(clm additive commonaxes);
-    class race(ref="black");
-    model low(event='1') = param(lwt smoke race) spline(age, df=4) / dist=binomial link=logit;
-run;
+	model INS(event='1') = param(&SplineVar) spline(phone, df=4)/ dist=binomial link=logit;
+run; 
 
+%let SplineVar =  CC CD DDA INV IRA MM MTG TELLER modified_savbal PHONE;
+proc gam data=logistic.insurance_modified plots=components(clm additive commonaxes);
+	model INS(event='1') = param(&SplineVar) spline(dep, df=4)/ dist=binomial link=logit;
+run; 
 /* calibration curve - looking great, but again it will take time to run due to the loess thing*/
 proc sgplot data=predicted;
 loess x=phat y=INS / smooth=0.75 interpolation=cubic clm;
