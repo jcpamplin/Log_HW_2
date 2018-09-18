@@ -1,0 +1,171 @@
+ /* checking partial residual*/
+/************************************************************************************************/
+/***********************************************************************/
+
+%let FinalModVar =  CC CD DDA INV IRA MM MTG TELLER modified_savbal PHONE DEP DDA*IRA DDA*MM;
+proc logistic data=logistic.insurance_modified;
+	model INS(event='1') = &FinalModVar DDA*modified_savbal  MM*INV CD*modified_savbal MM*modified_savbal CD*INV CD*MM INV*modified_savbal IRA*modified_savbal IRA*INV MM*IRA* INV*modified_savbal CD*modified_savbal/;
+	*output out=predicted reschi=respearson pred=phat predprobs=x;
+run;
+proc logistic data=logistic.insurance_modified;
+	model INS(event='1') = CC MTG Teller modified_savbal phone DEP CD DDA INV IRA MM DDA*IRA DDA*MM;
+	*output out=predicted reschi=respearson pred=phat predprobs=x;
+run;
+proc logistic data=logistic.insurance_modified;
+	model INS(event='1') = &FinalModVar /*CD*INV CD*MM INV*modified_savbal IRA*modified_savbal  MM*INV IRA*INV MM*IRA*/;
+	output out=predicted reschi=respearson pred=phat predprobs=x;
+run;
+
+/* coefficients improved than before --> modified_savbal = 0.1476*/
+data predicted;
+set predicted;
+ working = (INS - phat)/(phat*(1 - phat));
+ respart_SAVBAL = 0.1430*MODIFIED_SAVBAL + working;
+ respart_DEP = -0.1051*DEP + working;
+ respart_TELLER = 0.0879*TELLER + working;
+ respart_PHONE = -0.0871*PHONE + working;
+ run;
+
+ /*this will take a lot of time*/
+ODS GRAPHICS on/LOESSMAXOBS=10000;/* for getting CI for data points > 5000*/
+ proc sgplot data=predicted;
+ scatter x=MODIFIED_SAVBAL y=respart_SAVBAL;
+ loess x=MODIFIED_SAVBAL y=respart_SAVBAL / clm;
+ reg x=MODIFIED_SAVBAL y=respart_SAVBAL / nomarkers;
+ run;
+
+proc sgplot data=predicted;
+ scatter x=DEP y=respart_DEP;
+ loess x=DEP y=respart_DEP / clm;
+ reg x=DEP y=respart_DEP / nomarkers;
+ run;
+/**/
+proc sgplot data=predicted;
+ scatter x=TELLER y=respart_TELLER;
+ loess x=TELLER y=respart_TELLER / clm;
+reg x=TELLER y=respart_TELLER / nomarkers;
+run;
+
+proc sgplot data=predicted;
+ scatter x=PHONE y=respart_PHONE;
+ loess x=PHONE y=respart_PHONE / clm;
+ reg x=PHONE y=respart_PHONE / nomarkers;
+ run; 
+
+ /*fitting additive model - cannot interpret it - coeffs look good*/
+proc gam data=logistic.insurance_modified plots=components(clm additive commonaxes);
+	model INS(event='1') = param(&FinalModVar) / dist=binomial link=logit;
+run; 
+
+
+proc gam data=logistic.insurance_modified plots=components(clm additive commonaxes);
+	model INS(event='1') = param(&FinalModVar) spline(phone, df=2)/ dist=binomial link=logit;
+run; 
+/* calibration curve - looking great, but again it will take time to run due to the loess thing*/
+proc sgplot data=predicted;
+loess x=phat y=INS / smooth=0.75 interpolation=cubic clm;
+lineparm x=0 y=0 slope=1 / lineattrs=(color=grey pattern=dash);
+run;
+
+/*leverage points check */
+proc sort data=logistic.insurance_modified;
+by INS;
+run;
+proc logistic data=logistic.insurance_modified plots(MAXPOINTS=NONE only label)=influence;
+	model INS(event='1') = &FinalModVar;
+run;
+
+proc logistic data=logistic.insurance_modified plots(MAXPOINTS=NONE only label)=dpc;
+	model INS(event='1') = &FinalModVar;
+run;
+
+
+proc logistic data=logistic.insurance_modified plots(MAXPOINTS=NONE only label)=dfbetas;
+	model INS(event='1') = &FinalModVar;
+run;
+
+/*Update Validation Dataset to impute values and modify savbal*/
+proc stdize data=logistic.insurance_v reponly method=median out=logistic.insurance_v2;
+	var CC CD DDA DEP INV IRA MM MTG TELLER SAVBAl PHONE;
+run; 
+
+data logistic.insurance_v_mod;
+set logistic.insurance_v2;
+if savbal <> 0 then modified_savbal = log(savbal);
+else modified_savbal = savbal;
+run;
+data logs;
+	set logistic.insurance_t;
+run;
+
+/* fitting */
+/* roc curve brier score c stat */
+proc logistic data=logistic.insurance_modified plots(only)=ROC(id = prob);
+	model INS(event='1') = &FinalModVar / rocci;
+	score data=logistic.insurance_v_mod out=Valpred outroc=vroc fitstat;
+	roc; roccontrast;
+run;
+
+
+/* distribution of predicted probabilities */
+proc logistic data=logistic.insurance_modified noprint;
+	model INS(event='1') = &FinalModVar;
+	/* output predicted probabilities */
+	output out=predprobs p=phat;
+run;
+
+
+
+proc logistic data=logistic.insurance_v_mod;
+	model INS(event='1') = &FinalModVar;
+	/* output predicted probabilities */
+	output out=predprobs p=phat;
+run;
+/* graphics -- sorting by low to get mean(1s) - mean(0s) in the next step.
+that's the coefficient of discrimination */
+proc sort data=predprobs;
+by descending INS;
+run;
+
+/* proc ttest will give the coefficient of discrimination.
+also gives a nice histogram (with density overlaid)
+and boxplots for each group */
+
+proc ttest data=Valpred order=data;
+ods select statistics summarypanel;
+class ins;
+var P_1;
+title 'coefficient of discrimination and plots';
+run;
+
+/* classification table */
+/* NOTE that SAS does leave-one-out when computing predicted probabilities,
+so the table results (and youden index) are different than what I have in R */
+proc logistic data=logistic.insurance_v_mod;
+	class INS;
+	model INS(event='1') = &FinalModVar / ctable pprob = 0 to 0.98 by 0.02;
+	/* output table */
+	score data=logistic.insurance_v_mod out=Valpred outroc=vroc fitstat;
+	ods output classification=classtable;
+	title 'classification table';
+	/* in this table:
+	true positives = "number of correct events"
+	true negatives = "number of correct nonevents"
+	false positive = "number of incorrect events"
+	false negative = "number of incorrect nonevents" */
+run;
+
+
+
+/* Youden's J statistic */
+data classtable;
+set classtable;
+/* using 100 because sas gives these in percentages */
+youden = sensitivity + specificity - 100;
+/* weighted youden would be 2*(w*sens + (1-w)*spec) - 100, where w is between 0 and 100 */
+run;
+proc sort data=classtable;
+by descending youden;
+run;
+proc print data=classtable;
+run;
